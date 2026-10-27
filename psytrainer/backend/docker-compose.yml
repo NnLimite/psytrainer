@@ -1,0 +1,29 @@
+# Запуск: cp .env.example .env && docker compose up --build
+# Ollama здесь не поднимается: по умолчанию API ходит в Ollama на хосте (WSL/Windows) по host.docker.internal.
+# Хотите Ollama в контейнере с GPU: раскомментируйте сервис ollama и задайте PSY_OLLAMA_URL=http://ollama:11434
+services:
+  db:
+    image: postgres:16
+    environment: {POSTGRES_USER: psy, POSTGRES_PASSWORD: psy, POSTGRES_DB: psytrainer}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U psy -d psytrainer"], interval: 5s, retries: 10}
+  redis:
+    image: redis:7
+    healthcheck: {test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 10}
+  api:
+    build: .
+    env_file: .env
+    environment:
+      PSY_DATABASE_URL: postgresql+asyncpg://psy:psy@db:5432/psytrainer
+      PSY_REDIS_URL: redis://redis:6379/0
+    ports: ["8000:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes: [storage:/srv/storage]
+  # ollama:
+  #   image: ollama/ollama
+  #   volumes: [ollama:/root/.ollama]
+  #   deploy: {resources: {reservations: {devices: [{driver: nvidia, count: all, capabilities: [gpu]}]}}}
+volumes: {pgdata: {}, storage: {}}

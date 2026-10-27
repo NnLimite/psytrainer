@@ -1,0 +1,4720 @@
+openapi: 3.1.0
+info:
+  title: PsyTrainer API
+  version: 1.0.0
+  description: Платформа тренировки навыков консультирования с ИИ-пациентами. Эндпоинты с x-status=implemented-in-module
+    уже реализованы в модуле case_model, остальные спроектированы.
+servers:
+- url: https://{host}/api/v1
+  variables:
+    host:
+      default: psytrainer.example
+tags:
+- name: Auth
+  description: Аутентификация и доступ
+- name: Profile
+  description: Профиль, согласия, прогресс, право на удаление
+- name: Organizations
+  description: Организации, участники, приглашения, группы
+- name: Reference
+  description: Справочники
+- name: Cases
+  description: Конструктор кейсов и версии модели случая
+- name: Sessions
+  description: Сессии, диалог, состояние пациента
+- name: Assessment
+  description: Рубрики и оценка сессий
+- name: Analytics
+  description: Аналитика и отчёты
+- name: Safety
+  description: События безопасности
+- name: Billing
+  description: Подписки и платежи
+- name: Admin
+  description: Администрирование платформы
+- name: System
+  description: Служебные
+security:
+- bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags:
+      - Auth
+      summary: Регистрация (B2C)
+      operationId: post_auth_register
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /auth/login:
+    post:
+      tags:
+      - Auth
+      summary: Вход по email и паролю
+      operationId: post_auth_login
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginIn'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /auth/refresh:
+    post:
+      tags:
+      - Auth
+      summary: Обновить access-токен по refresh-cookie
+      operationId: post_auth_refresh
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /auth/logout:
+    post:
+      tags:
+      - Auth
+      summary: Выход, отзыв refresh-токена
+      operationId: post_auth_logout
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      responses:
+        '204':
+          description: Без содержимого
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+  /auth/sso/{provider}/start:
+    get:
+      tags:
+      - Auth
+      summary: Начать вход через SSO вуза (OIDC)
+      operationId: get_auth_sso_provider_start
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '302':
+          description: Перенаправление
+          headers:
+            Location:
+              schema:
+                type: string
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /auth/sso/{provider}/callback:
+    get:
+      tags:
+      - Auth
+      summary: Колбэк SSO, выдаёт сессию
+      operationId: get_auth_sso_provider_callback
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: code
+        in: query
+        schema:
+          type: string
+        description: Код авторизации
+      - name: state
+        in: query
+        schema:
+          type: string
+        description: Параметр state
+      responses:
+        '302':
+          description: Перенаправление
+          headers:
+            Location:
+              schema:
+                type: string
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /auth/password/forgot:
+    post:
+      tags:
+      - Auth
+      summary: Запросить письмо для сброса пароля
+      operationId: post_auth_password_forgot
+      description: 'Всегда отвечает 202, даже если email неизвестен (защита от перебора).
+
+
+        Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordForgotIn'
+      responses:
+        '202':
+          description: Принято
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /auth/password/reset:
+    post:
+      tags:
+      - Auth
+      summary: Установить новый пароль по токену из письма
+      operationId: post_auth_password_reset
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetIn'
+      responses:
+        '204':
+          description: Без содержимого
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /me:
+    get:
+      tags:
+      - Profile
+      summary: Текущий пользователь
+      operationId: get_me
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+    patch:
+      tags:
+      - Profile
+      summary: Изменить профиль
+      operationId: patch_me
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/E401'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+    delete:
+      tags:
+      - Profile
+      summary: Удалить аккаунт и данные
+      operationId: delete_me
+      description: 'Запускает удаление персональных данных и транскриптов. Обезличенная статистика сохраняется.
+
+
+        Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL задачи /jobs/{id}
+            Retry-After:
+              schema:
+                type: integer
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+  /me/consents:
+    get:
+      tags:
+      - Profile
+      summary: Мои согласия
+      operationId: get_me_consents
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consent'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+  /me/consents/{kind}:
+    put:
+      tags:
+      - Profile
+      summary: Дать или отозвать согласие
+      operationId: put_me_consents_kind
+      description: 'Без согласия transcript_processing сессии создавать нельзя (409 consent_required).
+
+
+        Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentIn'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /me/progress:
+    get:
+      tags:
+      - Profile
+      summary: Мой прогресс по навыкам
+      operationId: get_me_progress
+      description: 'Роли: student.'
+      x-roles:
+      - student
+      x-status: planned
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+  /me/subscription:
+    get:
+      tags:
+      - Profile
+      summary: Моя подписка
+      operationId: get_me_subscription
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+  /me/data-export:
+    post:
+      tags:
+      - Profile
+      summary: Выгрузить мои данные
+      operationId: post_me_data_export
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL задачи /jobs/{id}
+            Retry-After:
+              schema:
+                type: integer
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+  /organizations/{orgId}:
+    get:
+      tags:
+      - Organizations
+      summary: Организация
+      operationId: get_organizations_orgId
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+    patch:
+      tags:
+      - Organizations
+      summary: Изменить организацию
+      operationId: patch_organizations_orgId
+      description: 'Роли: org_admin.'
+      x-roles:
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationPatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /organizations/{orgId}/members:
+    get:
+      tags:
+      - Organizations
+      summary: Участники организации
+      operationId: get_organizations_orgId_members
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      - name: role
+        in: query
+        schema:
+          type: string
+          enum:
+          - student
+          - teacher
+          - org_admin
+        description: Фильтр по роли
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Member'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /organizations/{orgId}/invitations:
+    post:
+      tags:
+      - Organizations
+      summary: Пригласить пользователя
+      operationId: post_organizations_orgId_invitations
+      description: 'Роли: org_admin.'
+      x-roles:
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /organizations/{orgId}/members/{userId}:
+    patch:
+      tags:
+      - Organizations
+      summary: Изменить роль участника
+      operationId: patch_organizations_orgId_members_userId
+      description: 'Роли: org_admin.'
+      x-roles:
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberPatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+    delete:
+      tags:
+      - Organizations
+      summary: Исключить участника
+      operationId: delete_organizations_orgId_members_userId
+      description: 'Роли: org_admin.'
+      x-roles:
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Без содержимого
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /organizations/{orgId}/subscription:
+    get:
+      tags:
+      - Organizations
+      summary: Лицензия организации
+      operationId: get_organizations_orgId_subscription
+      description: 'Роли: org_admin.'
+      x-roles:
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /groups:
+    get:
+      tags:
+      - Organizations
+      summary: Группы (мои или организации)
+      operationId: get_groups
+      description: 'Роли: teacher, org_admin, student.'
+      x-roles:
+      - teacher
+      - org_admin
+      - student
+      x-status: planned
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      - name: org_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+        description: Фильтр по организации
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Group'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+    post:
+      tags:
+      - Organizations
+      summary: Создать группу
+      operationId: post_groups
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /groups/{groupId}:
+    get:
+      tags:
+      - Organizations
+      summary: Группа
+      operationId: get_groups_groupId
+      description: 'Роли: teacher, org_admin, student.'
+      x-roles:
+      - teacher
+      - org_admin
+      - student
+      x-status: planned
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+    patch:
+      tags:
+      - Organizations
+      summary: Изменить группу
+      operationId: patch_groups_groupId
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupPatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+    delete:
+      tags:
+      - Organizations
+      summary: Удалить группу
+      operationId: delete_groups_groupId
+      description: 'Роли: org_admin.'
+      x-roles:
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Без содержимого
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+  /groups/{groupId}/members:
+    get:
+      tags:
+      - Organizations
+      summary: Состав группы
+      operationId: get_groups_groupId_members
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Member'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /groups/{groupId}/members/{userId}:
+    put:
+      tags:
+      - Organizations
+      summary: Добавить в группу (идемпотентно)
+      operationId: put_groups_groupId_members_userId
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+    delete:
+      tags:
+      - Organizations
+      summary: Убрать из группы
+      operationId: delete_groups_groupId_members_userId
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Без содержимого
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /disorders:
+    get:
+      tags:
+      - Reference
+      summary: Справочник расстройств МКБ-11 и DSM-5
+      operationId: get_disorders
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      - name: classifier
+        in: query
+        schema:
+          type: string
+          enum:
+          - ICD-11
+          - DSM-5
+        description: Классификатор
+      - name: q
+        in: query
+        schema:
+          type: string
+        description: Поиск по коду и названию
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Disorder'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+  /cases:
+    get:
+      tags:
+      - Cases
+      summary: Каталог кейсов
+      operationId: get_cases
+      description: 'Студент видит только опубликованные кейсы своей организации и публичные.
+
+
+        Роли: teacher, org_admin, student.'
+      x-roles:
+      - teacher
+      - org_admin
+      - student
+      x-status: planned
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      - name: q
+        in: query
+        schema:
+          type: string
+        description: Поиск по названию
+      - name: visibility
+        in: query
+        schema:
+          type: string
+          enum:
+          - private
+          - org
+          - public
+      - name: disorder_code
+        in: query
+        schema:
+          type: string
+        description: Код расстройства
+      - name: mine
+        in: query
+        schema:
+          type: boolean
+        description: Только мои
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CaseSummary'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+    post:
+      tags:
+      - Cases
+      summary: Создать кейс (первый черновик)
+      operationId: post_cases
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Повтор запроса с тем же ключом в течение 24 ч возвращает первый результат.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseDetail'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /cases/{caseId}:
+    get:
+      tags:
+      - Cases
+      summary: Кейс со списком версий
+      operationId: get_cases_caseId
+      description: 'Роли: teacher, org_admin, student.'
+      x-roles:
+      - teacher
+      - org_admin
+      - student
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseDetail'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+    patch:
+      tags:
+      - Cases
+      summary: Изменить название, доступ, архив
+      operationId: patch_cases_caseId
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CasePatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseSummary'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+    delete:
+      tags:
+      - Cases
+      summary: Удалить кейс (только если нет сессий)
+      operationId: delete_cases_caseId
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Без содержимого
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+  /cases/{caseId}/clone:
+    post:
+      tags:
+      - Cases
+      summary: Скопировать кейс себе
+      operationId: post_cases_caseId_clone
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseDetail'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /cases/{caseId}/versions:
+    get:
+      tags:
+      - Cases
+      summary: Версии кейса
+      operationId: get_cases_caseId_versions
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VersionInfo'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+    post:
+      tags:
+      - Cases
+      summary: Создать новый черновик версии
+      operationId: post_cases_caseId_versions
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionCreateIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseVersion'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /cases/{caseId}/versions/{versionNo}:
+    get:
+      tags:
+      - Cases
+      summary: Версия с полной моделью случая
+      operationId: get_cases_caseId_versions_versionNo
+      description: 'Студенту доступна только опубликованная версия, и в ответе нет скрытой тайны и триггеров.
+
+
+        Роли: teacher, org_admin, student.'
+      x-roles:
+      - teacher
+      - org_admin
+      - student
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: versionNo
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseVersion'
+          headers:
+            ETag:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+    put:
+      tags:
+      - Cases
+      summary: Заменить черновик версии
+      operationId: put_cases_caseId_versions_versionNo
+      description: 'Опубликованные версии неизменяемы: 409 version_immutable.
+
+
+        Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: versionNo
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+        description: ETag, полученный при GET версии. Несовпадение даёт 412.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseModel'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseVersion'
+          headers:
+            ETag:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '412':
+          $ref: '#/components/responses/E412'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /cases/{caseId}/versions/{versionNo}/validate:
+    post:
+      tags:
+      - Cases
+      summary: Проверить черновик без публикации
+      operationId: post_cases_caseId_versions_versionNo_validate
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: versionNo
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /cases/{caseId}/versions/{versionNo}/publish:
+    post:
+      tags:
+      - Cases
+      summary: Опубликовать версию
+      operationId: post_cases_caseId_versions_versionNo_publish
+      description: 'Версия становится неизменяемой. 422 validation_failed, если есть errors.
+
+
+        Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: versionNo
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseVersion'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /case-assist/suggestions:
+    post:
+      tags:
+      - Cases
+      summary: Подсказки LLM для раздела кейса
+      operationId: post_case_assist_suggestions
+      description: 'Помощник конструктора. Результат не сохраняется, автор вставляет его в черновик сам.
+
+
+        Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestionIn'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionOut'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions:
+    post:
+      tags:
+      - Sessions
+      summary: Начать сессию
+      operationId: post_sessions
+      description: 'Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: implemented-in-module
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Повтор запроса с тем же ключом в течение 24 ч возвращает первый результат.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+    get:
+      tags:
+      - Sessions
+      summary: Список сессий
+      operationId: get_sessions
+      description: 'Студент видит только свои сессии, преподаватель сессии своих групп.
+
+
+        Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      - name: group_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: case_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: user_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+        description: Только для преподавателя
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - active
+          - ended
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Session'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}:
+    get:
+      tags:
+      - Sessions
+      summary: Сессия
+      operationId: get_sessions_sessionId
+      description: 'Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/end:
+    post:
+      tags:
+      - Sessions
+      summary: Завершить сессию
+      operationId: post_sessions_sessionId_end
+      description: 'Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/messages:
+    post:
+      tags:
+      - Sessions
+      summary: Реплика студента, ответ целиком
+      operationId: post_sessions_sessionId_messages
+      description: 'Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: implemented-in-module
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageIn'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/MessageOut'
+                - $ref: '#/components/schemas/SimpleEvent'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+        '502':
+          $ref: '#/components/responses/E502'
+  /sessions/{sessionId}/messages/stream:
+    post:
+      tags:
+      - Sessions
+      summary: Реплика студента, ответ потоком SSE
+      operationId: post_sessions_sessionId_messages_stream
+      description: 'Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: implemented-in-module
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageIn'
+      responses:
+        '200':
+          description: 'Поток событий SSE: token, done, ended, out_of_role, error'
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: 'Строки вида `data: {JSON}` + пустая строка'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/turns:
+    get:
+      tags:
+      - Sessions
+      summary: Транскрипт
+      operationId: get_sessions_sessionId_turns
+      description: 'Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Turn'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/state:
+    get:
+      tags:
+      - Sessions
+      summary: Текущее состояние пациента
+      operationId: get_sessions_sessionId_state
+      description: 'Студенту доступно только в режиме training и если преподаватель разрешил подсказки; в exam всегда
+        403.
+
+
+        Роли: student, teacher, org_admin.'
+      x-roles:
+      - student
+      - teacher
+      - org_admin
+      x-status: implemented-in-module
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/state/history:
+    get:
+      tags:
+      - Sessions
+      summary: История состояния по репликам
+      operationId: get_sessions_sessionId_state_history
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StateSnapshot'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/formulation:
+    put:
+      tags:
+      - Sessions
+      summary: Отправить свою модель случая
+      operationId: put_sessions_sessionId_formulation
+      description: 'Можно перезаписывать, пока сессия активна. После завершения 409.
+
+
+        Роли: student.'
+      x-roles:
+      - student
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FormulationIn'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Formulation'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+    get:
+      tags:
+      - Sessions
+      summary: Модель случая студента и совпадение с эталоном
+      operationId: get_sessions_sessionId_formulation
+      description: 'Роли: student, teacher.'
+      x-roles:
+      - student
+      - teacher
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Formulation'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/safety-events:
+    get:
+      tags:
+      - Sessions
+      summary: События безопасности сессии
+      operationId: get_sessions_sessionId_safety_events
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SafetyEvent'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /rubrics:
+    get:
+      tags:
+      - Assessment
+      summary: Рубрики
+      operationId: get_rubrics
+      description: 'Роли: teacher, org_admin, student.'
+      x-roles:
+      - teacher
+      - org_admin
+      - student
+      x-status: planned
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Rubric'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+    post:
+      tags:
+      - Assessment
+      summary: Создать рубрику
+      operationId: post_rubrics
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RubricIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rubric'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /rubrics/{rubricId}:
+    get:
+      tags:
+      - Assessment
+      summary: Рубрика
+      operationId: get_rubrics_rubricId
+      description: 'Роли: teacher, org_admin, student.'
+      x-roles:
+      - teacher
+      - org_admin
+      - student
+      x-status: planned
+      parameters:
+      - name: rubricId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rubric'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /rubrics/{rubricId}/versions:
+    post:
+      tags:
+      - Assessment
+      summary: Новая версия рубрики
+      operationId: post_rubrics_rubricId_versions
+      description: 'Рубрики неизменяемы: изменения создают версию, старые оценки ссылаются на старую.
+
+
+        Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: rubricId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RubricIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rubric'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /sessions/{sessionId}/assessments:
+    post:
+      tags:
+      - Assessment
+      summary: Запустить оценку сессии
+      operationId: post_sessions_sessionId_assessments
+      description: 'Оценка выполняется воркером. Студент может запросить оценку только в режиме training.
+
+
+        Роли: teacher, student.'
+      x-roles:
+      - teacher
+      - student
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Повтор запроса с тем же ключом в течение 24 ч возвращает первый результат.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentIn'
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL задачи /jobs/{id}
+            Retry-After:
+              schema:
+                type: integer
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+    get:
+      tags:
+      - Assessment
+      summary: Оценки сессии
+      operationId: get_sessions_sessionId_assessments
+      description: 'Роли: student, teacher.'
+      x-roles:
+      - student
+      - teacher
+      x-status: planned
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Assessment'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /assessments/{assessmentId}:
+    get:
+      tags:
+      - Assessment
+      summary: Оценка с баллами и привязкой к репликам
+      operationId: get_assessments_assessmentId
+      description: 'Роли: student, teacher.'
+      x-roles:
+      - student
+      - teacher
+      x-status: planned
+      parameters:
+      - name: assessmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+    patch:
+      tags:
+      - Assessment
+      summary: Поправить баллы и комментарий
+      operationId: patch_assessments_assessmentId
+      description: 'Роли: teacher.'
+      x-roles:
+      - teacher
+      x-status: planned
+      parameters:
+      - name: assessmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentPatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /assessments/{assessmentId}/confirm:
+    post:
+      tags:
+      - Assessment
+      summary: Подтвердить оценку преподавателем
+      operationId: post_assessments_assessmentId_confirm
+      description: 'Роли: teacher.'
+      x-roles:
+      - teacher
+      x-status: planned
+      parameters:
+      - name: assessmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /jobs/{jobId}:
+    get:
+      tags:
+      - Assessment
+      summary: Статус фоновой задачи
+      operationId: get_jobs_jobId
+      description: 'Общий для оценки, выгрузки данных, удаления аккаунта и отчётов. Опрашивать с паузой по заголовку
+        Retry-After.
+
+
+        Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /jobs/{jobId}/download:
+    get:
+      tags:
+      - Assessment
+      summary: Скачать файл результата задачи (отчёт, выгрузка данных)
+      operationId: get_jobs_jobId_download
+      description: 'Только владелец задачи. Файлы хранятся 7 дней, затем удаляются вместе с задачей.
+
+
+        Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Файл результата
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /analytics/groups/{groupId}/summary:
+    get:
+      tags:
+      - Analytics
+      summary: Сводка по группе
+      operationId: get_analytics_groups_groupId_summary
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date
+        description: Начало периода
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date
+        description: Конец периода
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSummary'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /analytics/students/{userId}/progress:
+    get:
+      tags:
+      - Analytics
+      summary: Прогресс студента
+      operationId: get_analytics_students_userId_progress
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /analytics/cases/{caseId}/usage:
+    get:
+      tags:
+      - Analytics
+      summary: Использование кейса
+      operationId: get_analytics_cases_caseId_usage
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseUsage'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /reports:
+    post:
+      tags:
+      - Analytics
+      summary: Заказать отчёт (PDF, XLSX, CSV)
+      operationId: post_reports
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportIn'
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL задачи /jobs/{id}
+            Retry-After:
+              schema:
+                type: integer
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /safety-events:
+    get:
+      tags:
+      - Safety
+      summary: События безопасности
+      operationId: get_safety_events
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - open
+          - acknowledged
+          - resolved
+      - name: severity
+        in: query
+        schema:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+      - name: group_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SafetyEvent'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+  /safety-events/{eventId}:
+    patch:
+      tags:
+      - Safety
+      summary: Принять или закрыть событие
+      operationId: patch_safety_events_eventId
+      description: 'Роли: teacher, org_admin.'
+      x-roles:
+      - teacher
+      - org_admin
+      x-status: planned
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafetyEventPatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyEvent'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /billing/checkout:
+    post:
+      tags:
+      - Billing
+      summary: Создать платёжную сессию
+      operationId: post_billing_checkout
+      description: 'Роли: any.'
+      x-roles:
+      - any
+      x-status: planned
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Повтор запроса с тем же ключом в течение 24 ч возвращает первый результат.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutIn'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOut'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /webhooks/payments/{provider}:
+    post:
+      tags:
+      - Billing
+      summary: Вебхук платёжного провайдера
+      operationId: post_webhooks_payments_provider
+      description: 'Подпись проверяется по секрету провайдера (HMAC), повторы безопасны (идемпотентность по event
+        id).
+
+
+        Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Без содержимого
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /admin/prompt-templates:
+    get:
+      tags:
+      - Admin
+      summary: Шаблоны промптов
+      operationId: get_admin_prompt_templates
+      description: 'Роли: platform_admin.'
+      x-roles:
+      - platform_admin
+      x-status: planned
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Размер страницы
+      - name: cursor
+        in: query
+        schema:
+          type: string
+        description: Курсор из next_cursor предыдущей страницы
+      - name: kind
+        in: query
+        schema:
+          type: string
+          enum:
+          - patient
+          - classifier
+          - judge
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PromptTemplate'
+                  next_cursor:
+                    oneOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+    post:
+      tags:
+      - Admin
+      summary: Создать версию шаблона
+      operationId: post_admin_prompt_templates
+      description: 'Роли: platform_admin.'
+      x-roles:
+      - platform_admin
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptTemplateIn'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptTemplate'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '422':
+          $ref: '#/components/responses/E422'
+        '429':
+          $ref: '#/components/responses/E429'
+  /admin/prompt-templates/{templateId}/activate:
+    post:
+      tags:
+      - Admin
+      summary: Сделать версию активной
+      operationId: post_admin_prompt_templates_templateId_activate
+      description: 'Роли: platform_admin.'
+      x-roles:
+      - platform_admin
+      x-status: planned
+      parameters:
+      - name: templateId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptTemplate'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+  /admin/llm-usage:
+    get:
+      tags:
+      - Admin
+      summary: 'Расход LLM: вызовы, токены, задержка, стоимость'
+      operationId: get_admin_llm_usage
+      description: 'Роли: platform_admin.'
+      x-roles:
+      - platform_admin
+      x-status: planned
+      parameters:
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmUsage'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+  /health:
+    get:
+      tags:
+      - System
+      summary: Liveness
+      operationId: get_health
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '429':
+          $ref: '#/components/responses/E429'
+      security: []
+  /ready:
+    get:
+      tags:
+      - System
+      summary: 'Readiness: БД, Redis, LLM'
+      operationId: get_ready
+      description: 'Роли: public.'
+      x-roles:
+      - public
+      x-status: planned
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '429':
+          $ref: '#/components/responses/E429'
+        '503':
+          $ref: '#/components/responses/E503'
+      security: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: Машиночитаемый код ошибки. 400 bad_request; 401 unauthorized, token_expired; 403 forbidden,
+            state_hidden; 404 not_found; 409 consent_required, session_not_active, session_not_ended, session_busy,
+            version_immutable, version_not_published, case_has_sessions, group_has_sessions, previous_session_mismatch,
+            duplicate_message, already_exists, last_admin, teacher_has_groups; 412 precondition_failed; 422 validation_failed,
+            format_not_supported; 429 rate_limited; 502 llm_unavailable, sso_failed; 503 not_ready
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+      required:
+      - type
+      - title
+      - status
+      - code
+    PatientState:
+      type: object
+      properties:
+        trust:
+          type: number
+          minimum: 0
+          maximum: 1
+        anxiety:
+          type: number
+          minimum: 0
+          maximum: 1
+        resistance:
+          type: number
+          minimum: 0
+          maximum: 1
+        openness:
+          type: number
+          minimum: 0
+          maximum: 1
+      required:
+      - trust
+      - anxiety
+      - resistance
+      - openness
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - assessment
+          - data_export
+          - erasure
+          - report
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - succeeded
+          - failed
+        result_url:
+          oneOf:
+          - type: string
+            format: uri
+          - type: 'null'
+        error:
+          oneOf:
+          - type: string
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      required:
+      - id
+      - type
+      - status
+      - created_at
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        role:
+          type: string
+          enum:
+          - student
+          - teacher
+          - org_admin
+          - platform_admin
+        org_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        locale:
+          type: string
+          examples:
+          - ru
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - email
+      - role
+      - created_at
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum:
+          - Bearer
+        expires_in:
+          type: integer
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      description: 'Refresh-токен выдаётся отдельно: httpOnly-cookie psy_refresh, ротируется при каждом /auth/refresh.'
+    RegisterIn:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 10
+        full_name:
+          type: string
+        locale:
+          type: string
+        invitation_token:
+          oneOf:
+          - type: string
+            description: 'Токен из письма-приглашения: привязывает к организации и роли'
+          - type: 'null'
+      required:
+      - email
+      - password
+      - full_name
+    LoginIn:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+      - email
+      - password
+    PasswordForgotIn:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    PasswordResetIn:
+      type: object
+      properties:
+        token:
+          type: string
+        new_password:
+          type: string
+          minLength: 10
+      required:
+      - token
+      - new_password
+    UserPatch:
+      type: object
+      properties:
+        full_name:
+          type: string
+        locale:
+          type: string
+    Consent:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - transcript_processing
+          - analytics
+          - research_use
+        granted:
+          type: boolean
+        granted_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        revoked_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      required:
+      - kind
+      - granted
+    ConsentIn:
+      type: object
+      properties:
+        granted:
+          type: boolean
+      required:
+      - granted
+    Progress:
+      type: object
+      properties:
+        sessions_completed:
+          type: integer
+        avg_total_score:
+          oneOf:
+          - type: number
+          - type: 'null'
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              title:
+                type: string
+              avg_score:
+                type: number
+              delta_30d:
+                oneOf:
+                - type: number
+                - type: 'null'
+      required:
+      - sessions_completed
+      - skills
+    Subscription:
+      type: object
+      properties:
+        owner_type:
+          type: string
+          enum:
+          - user
+          - organization
+        plan:
+          type: string
+        status:
+          type: string
+          enum:
+          - active
+          - past_due
+          - canceled
+          - trial
+        valid_until:
+          oneOf:
+          - type: string
+            format: date
+          - type: 'null'
+      required:
+      - owner_type
+      - plan
+      - status
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        org_type:
+          type: string
+          enum:
+          - university
+          - clinic
+          - training_center
+        data_region:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - org_type
+    OrganizationPatch:
+      type: object
+      properties:
+        name:
+          type: string
+    Member:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum:
+          - student
+          - teacher
+          - org_admin
+        joined_at:
+          type: string
+          format: date-time
+      required:
+      - user_id
+      - role
+    MemberPatch:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+          - student
+          - teacher
+          - org_admin
+      required:
+      - role
+    InvitationIn:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum:
+          - student
+          - teacher
+        group_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - email
+      - role
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          - expired
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - email
+      - role
+      - status
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        members_count:
+          type: integer
+      required:
+      - id
+      - org_id
+      - teacher_id
+      - name
+    GroupIn:
+      type: object
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - org_id
+      - name
+    GroupPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        teacher_id:
+          type: string
+          format: uuid
+    Disorder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        classifier:
+          type: string
+          enum:
+          - ICD-11
+          - DSM-5
+        code:
+          type: string
+        name:
+          type: string
+      required:
+      - id
+      - classifier
+      - code
+      - name
+    Trigger:
+      type: object
+      properties:
+        id:
+          type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        situation:
+          type: string
+        automatic_thought:
+          type: string
+        emotion:
+          type: string
+        behavior:
+          type: string
+        intensity:
+          type: number
+          minimum: 0
+          maximum: 1
+      required:
+      - id
+      - keywords
+      - situation
+      - automatic_thought
+      - emotion
+      - behavior
+    CaseModel:
+      type: object
+      properties:
+        title:
+          type: string
+        name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        occupation:
+          type: string
+        language:
+          type: string
+        presenting_problem:
+          type: string
+        background:
+          type: array
+          items:
+            type: string
+        core_beliefs:
+          type: array
+          items:
+            type: string
+        rules:
+          type: array
+          items:
+            type: string
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trigger'
+        defenses:
+          type: array
+          items:
+            type: string
+        communication_style:
+          type: object
+          properties:
+            verbosity:
+              type: string
+              enum:
+              - terse
+              - moderate
+              - talkative
+            tone:
+              type: string
+            quirks:
+              type: array
+              items:
+                type: string
+        goals:
+          type: array
+          items:
+            type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        disorders:
+          type: array
+          items:
+            type: object
+            properties:
+              classifier:
+                type: string
+                enum:
+                - ICD-11
+                - DSM-5
+              code:
+                type: string
+              name:
+                type: string
+              role:
+                type: string
+                enum:
+                - primary
+                - comorbid
+            required:
+            - classifier
+            - code
+            - name
+        baseline:
+          $ref: '#/components/schemas/PatientState'
+        hidden_disclosure:
+          oneOf:
+          - type: object
+            properties:
+              text:
+                type: string
+              trust_threshold:
+                type: number
+                minimum: 0
+                maximum: 1
+              openness_threshold:
+                type: number
+                minimum: 0
+                maximum: 1
+            required:
+            - text
+          - type: 'null'
+      required:
+      - title
+      - name
+      - age
+      - gender
+      - presenting_problem
+      - background
+      - core_beliefs
+      - rules
+      - triggers
+      - defenses
+      - communication_style
+      - goals
+      - strengths
+      - disorders
+      - baseline
+      description: Совпадает с pydantic-схемой CaseModel модуля case_model.
+    CaseModelPublic:
+      type: object
+      properties:
+        title:
+          type: string
+        name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        occupation:
+          type: string
+        language:
+          type: string
+        presenting_problem:
+          type: string
+      description: 'Что видит студент: только то, что видит человек на приёме. Структура случая скрыта.'
+    CaseSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        visibility:
+          type: string
+          enum:
+          - private
+          - org
+          - public
+        author_id:
+          type: string
+          format: uuid
+        org_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        latest_version_no:
+          type: integer
+        published_version_no:
+          oneOf:
+          - type: integer
+          - type: 'null'
+        archived:
+          type: boolean
+        disorders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Disorder'
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - visibility
+      - author_id
+      - latest_version_no
+      - archived
+    VersionInfo:
+      type: object
+      properties:
+        version_no:
+          type: integer
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        created_at:
+          type: string
+          format: date-time
+        published_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      required:
+      - version_no
+      - status
+    CaseDetail:
+      allOf:
+      - $ref: '#/components/schemas/CaseSummary'
+      - type: object
+        properties:
+          versions:
+            type: array
+            items:
+              $ref: '#/components/schemas/VersionInfo'
+    CaseVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        case_id:
+          type: string
+          format: uuid
+        version_no:
+          type: integer
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        case_model:
+          oneOf:
+          - $ref: '#/components/schemas/CaseModel'
+          - $ref: '#/components/schemas/CaseModelPublic'
+        language:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        published_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      required:
+      - id
+      - case_id
+      - version_no
+      - status
+      - case_model
+    CaseIn:
+      type: object
+      properties:
+        title:
+          type: string
+        visibility:
+          type: string
+          enum:
+          - private
+          - org
+          - public
+        case_model:
+          $ref: '#/components/schemas/CaseModel'
+      required:
+      - title
+      - case_model
+    CasePatch:
+      type: object
+      properties:
+        title:
+          type: string
+        visibility:
+          type: string
+          enum:
+          - private
+          - org
+          - public
+        archived:
+          type: boolean
+    VersionCreateIn:
+      type: object
+      properties:
+        based_on_version_no:
+          type: integer
+      description: Создаёт новый черновик на основе версии (по умолчанию последней).
+    ValidationReport:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              message:
+                type: string
+        warnings:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+      required:
+      - valid
+      - errors
+      - warnings
+      description: 'errors блокируют публикацию, warnings нет (например: корень ключевого слова короче 4 символов,
+        нет триггеров, порог тайны выше 0.9).'
+    SuggestionIn:
+      type: object
+      properties:
+        section:
+          type: string
+          enum:
+          - background
+          - core_beliefs
+          - rules
+          - triggers
+          - defenses
+          - communication_style
+          - hidden_disclosure
+        context:
+          type: object
+          properties: {}
+          description: Уже заполненные части CaseModel
+        language:
+          type: string
+      required:
+      - section
+      - context
+    SuggestionOut:
+      type: object
+      properties:
+        section:
+          type: string
+        suggestions:
+          type: array
+          items:
+            type: object
+            properties:
+              value: {}
+              rationale:
+                type: string
+            required:
+            - value
+      required:
+      - section
+      - suggestions
+    SessionIn:
+      type: object
+      properties:
+        case_version_id:
+          type: string
+          format: uuid
+        case_id:
+          type: string
+          format: uuid
+          description: 'Вместо case_version_id: берётся последняя опубликованная версия'
+        prev_session_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        group_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        mode:
+          type: string
+          enum:
+          - training
+          - preview
+          - exam
+      description: Нужно указать case_version_id или case_id. mode=preview доступен только автору кейса и работает
+        и на черновике.
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        case_version_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        group_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        prev_session_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        session_no:
+          type: integer
+        mode:
+          type: string
+          enum:
+          - training
+          - preview
+          - exam
+        status:
+          type: string
+          enum:
+          - active
+          - ended
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        turn_count:
+          type: integer
+        state:
+          oneOf:
+          - $ref: '#/components/schemas/PatientState'
+          - type: 'null'
+      required:
+      - id
+      - case_version_id
+      - user_id
+      - session_no
+      - mode
+      - status
+      - started_at
+    MessageIn:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        client_message_id:
+          type: string
+          format: uuid
+      required:
+      - text
+    MessageOut:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - done
+        reply:
+          type: string
+        state:
+          oneOf:
+          - $ref: '#/components/schemas/PatientState'
+          - type: 'null'
+        delta:
+          type: object
+          properties:
+            trust:
+              type: number
+            anxiety:
+              type: number
+            resistance:
+              type: number
+            openness:
+              type: number
+        triggers:
+          type: array
+          items:
+            type: string
+        features_source:
+          type: string
+          enum:
+          - llm
+          - heuristic
+        notice:
+          oneOf:
+          - type: object
+            properties:
+              code:
+                type: string
+              text:
+                type: string
+            required:
+            - code
+            - text
+            description: Подсказка студенту, например code=student_risk
+          - type: 'null'
+      required:
+      - type
+      - reply
+      description: state, delta и triggers возвращаются по правилам видимости (null в режиме exam).
+    SimpleEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - ended
+          - out_of_role
+      required:
+      - type
+      description: Ответ на слово «ВЫХОД» (ended) или срыв пациента с роли (out_of_role).
+    Turn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        turn_no:
+          type: integer
+        speaker:
+          type: string
+          enum:
+          - student
+          - patient
+        content:
+          type: string
+        flagged:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - turn_no
+      - speaker
+      - content
+    StateResponse:
+      type: object
+      properties:
+        state:
+          $ref: '#/components/schemas/PatientState'
+        disclosed:
+          type: boolean
+        turn_no:
+          type: integer
+      required:
+      - state
+      - disclosed
+      - turn_no
+    StateSnapshot:
+      type: object
+      properties:
+        turn_no:
+          type: integer
+        state:
+          $ref: '#/components/schemas/PatientState'
+        delta:
+          type: object
+          properties: {}
+        triggers:
+          type: array
+          items:
+            type: string
+        features:
+          type: object
+          properties: {}
+        features_source:
+          type: string
+          enum:
+          - llm
+          - heuristic
+        disclosed:
+          type: boolean
+      required:
+      - turn_no
+      - state
+    Formulation:
+      type: object
+      properties:
+        content:
+          type: object
+          properties: {}
+          description: Модель случая, составленная студентом (структура как у CaseModel)
+        match_score:
+          oneOf:
+          - type: number
+          - type: 'null'
+        submitted_at:
+          type: string
+          format: date-time
+      required:
+      - content
+    FormulationIn:
+      type: object
+      properties:
+        content:
+          type: object
+          properties: {}
+      required:
+      - content
+    SafetyEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        turn_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        event_type:
+          type: string
+          enum:
+          - student_risk
+          - role_break
+          - harmful_content
+        severity:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+        status:
+          type: string
+          enum:
+          - open
+          - acknowledged
+          - resolved
+        handled_by:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        note:
+          oneOf:
+          - type: string
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - session_id
+      - event_type
+      - severity
+      - status
+    SafetyEventPatch:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - acknowledged
+          - resolved
+        note:
+          type: string
+      required:
+      - status
+    Criterion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        weight:
+          type: number
+      required:
+      - id
+      - code
+      - title
+      - weight
+    Rubric:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        name:
+          type: string
+        version:
+          type: integer
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/Criterion'
+      required:
+      - id
+      - name
+      - version
+      - criteria
+    RubricIn:
+      type: object
+      properties:
+        name:
+          type: string
+        criteria:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              title:
+                type: string
+              description:
+                type: string
+              weight:
+                type: number
+            required:
+            - code
+            - title
+            - weight
+      required:
+      - name
+      - criteria
+    AssessmentIn:
+      type: object
+      properties:
+        rubric_id:
+          type: string
+          format: uuid
+        assessor:
+          type: string
+          enum:
+          - llm
+        model:
+          type: string
+      required:
+      - rubric_id
+    CriterionScore:
+      type: object
+      properties:
+        criterion_code:
+          type: string
+        score:
+          type: integer
+        evidence_turn_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        comment:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - criterion_code
+      - score
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        rubric_id:
+          type: string
+          format: uuid
+        assessor_type:
+          type: string
+          enum:
+          - llm
+          - teacher
+        assessor_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        total_score:
+          type: number
+        summary:
+          type: string
+        teacher_confirmed:
+          type: boolean
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/CriterionScore'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - session_id
+      - rubric_id
+      - assessor_type
+      - total_score
+      - scores
+    AssessmentPatch:
+      type: object
+      properties:
+        summary:
+          type: string
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/CriterionScore'
+    GroupSummary:
+      type: object
+      properties:
+        group_id:
+          type: string
+          format: uuid
+        sessions_count:
+          type: integer
+        active_students:
+          type: integer
+        avg_total_score:
+          oneOf:
+          - type: number
+          - type: 'null'
+        open_safety_events:
+          type: integer
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              title:
+                type: string
+              avg_score:
+                type: number
+      required:
+      - group_id
+      - sessions_count
+    CaseUsage:
+      type: object
+      properties:
+        case_id:
+          type: string
+          format: uuid
+        sessions_count:
+          type: integer
+        avg_duration_min:
+          type: number
+        avg_final_trust:
+          type: number
+        disclosure_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+      required:
+      - case_id
+      - sessions_count
+    ReportIn:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - group_summary
+          - student_progress
+          - case_usage
+        params:
+          type: object
+          properties: {}
+          description: group_id / user_id / case_id и период (from, to)
+        format:
+          type: string
+          enum:
+          - pdf
+          - xlsx
+          - csv
+      required:
+      - type
+      - params
+      - format
+    CheckoutIn:
+      type: object
+      properties:
+        plan:
+          type: string
+        success_url:
+          type: string
+          format: uri
+        cancel_url:
+          type: string
+          format: uri
+      required:
+      - plan
+      - success_url
+      - cancel_url
+    CheckoutOut:
+      type: object
+      properties:
+        checkout_url:
+          type: string
+          format: uri
+      required:
+      - checkout_url
+    PromptTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - patient
+          - classifier
+          - judge
+        version:
+          type: integer
+        body:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - kind
+      - version
+      - body
+      - is_active
+    PromptTemplateIn:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - patient
+          - classifier
+          - judge
+        body:
+          type: string
+      required:
+      - kind
+      - body
+    LlmUsage:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              model:
+                type: string
+              purpose:
+                type: string
+                enum:
+                - patient
+                - classifier
+                - judge
+                - assist
+              calls:
+                type: integer
+              tokens_in:
+                type: integer
+              tokens_out:
+                type: integer
+              p95_latency_ms:
+                type: integer
+              cost:
+                type: number
+      required:
+      - items
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+          - down
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+            redis:
+              type: string
+            llm:
+              type: string
+      required:
+      - status
+  responses:
+    E400:
+      description: Некорректный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E401:
+      description: Нет или просрочен токен
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E403:
+      description: Недостаточно прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E404:
+      description: Не найдено
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E409:
+      description: Конфликт состояния
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E412:
+      description: Не совпал If-Match
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E422:
+      description: Ошибка валидации
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E429:
+      description: Слишком много запросов
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E502:
+      description: LLM недоступна
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    E503:
+      description: Сервис не готов
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
